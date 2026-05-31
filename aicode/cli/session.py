@@ -61,17 +61,40 @@ class PrintingMiddleware(NoopMiddleware):
     def __init__(self) -> None:
         self._max_preview = 360
         self._tool_started_at: dict[str, float] = {}
+        self._transient_active = False
+
+    def _show_transient(self, line: str) -> None:
+        if sys.stdout.isatty():
+            sys.stdout.write("\r\033[2K" + line)
+            sys.stdout.flush()
+            self._transient_active = True
+        else:
+            print(line)
+
+    def _clear_transient(self) -> None:
+        if not self._transient_active:
+            return
+        sys.stdout.write("\r\033[2K")
+        sys.stdout.flush()
+        self._transient_active = False
 
     def pre_turn(self, state: LoopState) -> None:
         last_role = state.messages[-1].get("role") if state.messages else None
         label = "整理结果" if last_role == "tool" else "思考中"
         detail = "正在分析工具输出，准备下一步" if last_role == "tool" else "正在理解你的请求"
-        print(
+        self._show_transient(
             f"  {theme.status_dot('thinking')} "
             f"{theme.gold(label)} {theme.badge('model', 'gold')} {theme.dim(detail)}"
         )
 
+    def pre_assistant_output(self, state: LoopState) -> None:
+        self._clear_transient()
+
+    def post_model(self, state: LoopState) -> None:
+        self._clear_transient()
+
     def pre_tool(self, call: ToolCall, state: LoopState) -> ToolResult | None:
+        self._clear_transient()
         self._tool_started_at[call.id] = time.perf_counter()
         print(
             f"  {theme.status_dot('working')} "

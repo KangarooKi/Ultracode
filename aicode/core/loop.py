@@ -48,12 +48,18 @@ class LoopMiddleware:
 
     生命周期：
     - pre_turn : 每轮开始前（可修改 state）
+    - pre_assistant_output: 流式助手正文第一次写出前（可清理临时状态）
+    - post_model: 每次 LLM 调用结束后（可清理临时状态）
     - pre_tool : 工具调用前（返回 ToolResult 则拦截，返回 None 则放行）
     - post_tool: 工具调用后（可记录/压缩/统计）
     - post_turn: 每轮结束后（可发送提醒消息）
     """
 
     def pre_turn(self, state: LoopState) -> None: ...
+
+    def pre_assistant_output(self, state: LoopState) -> None: ...
+
+    def post_model(self, state: LoopState) -> None: ...
 
     def pre_tool(self, call: ToolCall, state: LoopState) -> ToolResult | None: ...
 
@@ -68,6 +74,12 @@ class NoopMiddleware:
     """空实现基类，子类只需覆盖需要的方法。"""
 
     def pre_turn(self, state: LoopState) -> None:
+        pass
+
+    def pre_assistant_output(self, state: LoopState) -> None:
+        pass
+
+    def post_model(self, state: LoopState) -> None:
         pass
 
     def pre_tool(self, call: ToolCall, state: LoopState) -> ToolResult | None:
@@ -151,11 +163,13 @@ def _stream_to_result(
     *,
     markdown_stream: AssistantMarkdownStreamWriter | None = None,
     line_prefix_sink: _PrefixedLineWriter | None = None,
+    on_first_output: Callable[[], None] | None = None,
 ) -> LLMCallResult:
     content_parts: list[str] = []
     tool_acc: dict[int, dict[str, str]] = {}
     finish_reason = "stop"
     streamed = 0
+    output_started = False
 
     try:
         stream = client.chat.completions.create(**kwargs, stream=True)
@@ -171,6 +185,9 @@ def _stream_to_result(
                 continue
             piece = getattr(d, "content", None)
             if piece:
+                if not output_started and on_first_output is not None:
+                    on_first_output()
+                    output_started = True
                 content_parts.append(piece)
                 streamed += len(piece)
                 writer(piece)
@@ -260,6 +277,7 @@ def _call_llm(config: AgentLoopConfig, api_messages: list, state: LoopState) -> 
             writer,
             markdown_stream=md_stream,
             line_prefix_sink=prefix_sink,
+            on_first_output=lambda: _notify_pre_assistant_output(config, state),
         )
 
     if recovery is None:
@@ -321,6 +339,16 @@ def _call_llm(config: AgentLoopConfig, api_messages: list, state: LoopState) -> 
     raise RuntimeError("_call_llm: retry loop exhausted without returning")  # pragma: no cover
 
 
+def _notify_pre_assistant_output(config: AgentLoopConfig, state: LoopState) -> None:
+    for mw in config.middleware:
+        mw.pre_assistant_output(state)
+
+
+def _notify_post_model(config: AgentLoopConfig, state: LoopState) -> None:
+    for mw in config.middleware:
+        mw.post_model(state)
+
+
 # ---------------------------------------------------------------------------
 # 主循环
 # ---------------------------------------------------------------------------
@@ -345,8 +373,12 @@ def run_agent_loop(config: AgentLoopConfig, state: LoopState) -> LoopState:
             *state.messages,
         ]
         # 流式时关闭 stderr 等待动画，否则与 stdout 流式正文在终端里交错成乱码
-        with llm_wait_context(show_hint=not config.stream):
-            result = _call_llm(config, api_messages, state)
+        try:
+            with llm_wait_context(show_hint=not config.stream):
+                result = _call_llm(config, api_messages, state)
+        except Exception:
+            _notify_post_model(config, state)
+            raise
 
         state.messages.append(result.assistant_dict)
         state.metadata["streamed_assistant_total"] = (
@@ -358,6 +390,7 @@ def run_agent_loop(config: AgentLoopConfig, state: LoopState) -> LoopState:
         finish_reason = result.finish_reason
         state.last_stop_reason = finish_reason
         state.metadata["recovery.last_stop_reason"] = finish_reason
+        _notify_post_model(config, state)
 
         tool_calls = result.tool_calls
         if not tool_calls:

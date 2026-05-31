@@ -58,23 +58,37 @@ class PrintingMiddleware(NoopMiddleware):
     """实时打印工具结果预览（低对比度，避免抢助手正文）。"""
 
     def __init__(self) -> None:
-        self._dim = "\033[2m"
-        self._muted = "\033[38;2;120;140;160m"
-        self._name = "\033[38;2;100;165;200m"
-        self._reset = "\033[0m"
+        self._max_preview = 360
 
     def post_tool(self, call: ToolCall, result: ToolResult, state: LoopState) -> None:
         raw = (result.content or "").strip()
+        status = result.status or "ok"
+        label = {
+            "ok": "done",
+            "error": "error",
+            "denied": "denied",
+            "blocked": "blocked",
+        }.get(status, status)
         if not raw:
-            tail = self._dim + "(无输出)" + self._reset
+            tail = theme.dim("(no output)")
         else:
-            one_line = raw[:400].replace("\r", "").replace("\n", " · ")
-            if len(raw) > 400:
+            one_line = raw[: self._max_preview].replace("\r", "").replace("\n", " · ")
+            if len(raw) > self._max_preview:
                 one_line += "…"
-            tail = self._dim + one_line + self._reset
+            tail = theme.dim(one_line)
         print(
-            f"  {self._dim}›{self._reset} {self._name}{call.name}{self._reset} {tail}"
+            f"  {theme.status_dot(status)} {theme.primary(call.name)} "
+            f"{theme.badge(label, _status_tone(status))} {tail}"
         )
+
+
+def _status_tone(status: str) -> str:
+    return {
+        "ok": "green",
+        "error": "error",
+        "denied": "warn",
+        "blocked": "warn",
+    }.get(status, "muted")
 
 
 def session_cleanup(ctx: ReplContext) -> None:

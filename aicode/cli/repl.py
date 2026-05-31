@@ -29,10 +29,6 @@ from aicode.planning.task_graph import TaskManager
 from aicode.planning.todo import TodoManager
 from aicode.security.permission import PermissionManager
 
-_DIM = "\033[2m"
-_BLUE_ACCENT = "\033[38;5;33m"
-_RESET = "\033[0m"
-
 
 def run_repl(workdir: Path | None = None) -> None:
     ctx = build_repl_context(workdir, quiet_tools=False)
@@ -74,11 +70,11 @@ def run_repl(workdir: Path | None = None) -> None:
             history.append({"role": "user", "content": query})
             state = LoopState(messages=history, max_turns=cfg.max_turns)
             if ctx.loop_cfg.stream:
-                print(f"{_DIM}assistant{_RESET}")
+                print(theme.badge("assistant", "primary"))
             try:
                 run_agent_loop(ctx.loop_cfg, state)
             except KeyboardInterrupt:
-                print("\n[interrupted]")
+                print(f"\n{theme.warn('[interrupted]')}")
 
             text = extract_last_text(state)
             if text:
@@ -119,6 +115,8 @@ def _nanocode_rgb(t: float) -> tuple[int, int, int]:
 
 def _nanocode_style_pixel_line(line: str) -> str:
     """Dark panel + bold block glyphs with per-column truecolor gradient (NanoCode-like)."""
+    if theme.no_color():
+        return line
     bg = (24, 26, 32)
     n = len(line)
     denom = max(n - 1, 1)
@@ -131,7 +129,7 @@ def _nanocode_style_pixel_line(line: str) -> str:
             parts.append(f"\033[38;2;{r};{g};{b}m█")
         else:
             parts.append(" ")
-    parts.append(_RESET)
+    parts.append(theme.RESET)
     return "".join(parts)
 
 
@@ -160,12 +158,6 @@ def _pixel_ultracode_lines() -> list[str]:
 
 def _print_meta_box(workdir: Path, model: str, version: str) -> None:
     """Box with light blue border; inside: only the word UltraCode is blue, no fill."""
-    bc = (92, 178, 220)  # 浅蓝框线
-    name_blue = (58, 132, 220)  # UltraCode 字样
-
-    def esc_fg(rgb: tuple[int, int, int]) -> str:
-        return f"\033[38;2;{rgb[0]};{rgb[1]};{rgb[2]}m"
-
     tw = _terminal_width()
     max_path = max(24, tw - 10)
     ws = str(workdir)
@@ -178,17 +170,16 @@ def _print_meta_box(workdir: Path, model: str, version: str) -> None:
     content_w = max(len(r1_plain), len(r2), len(r3))
     h_inner = content_w + 2  # " " + text + " " between │
 
-    b = esc_fg(bc)
-    nb = esc_fg(name_blue)
-    r = _RESET
-
     pad1 = content_w - len(r1_plain)
     line1_inner = (
-        f" {nb}UltraCode{r}{_DIM} v{version}{r}{' ' * pad1} "
+        f" {theme.style('UltraCode', theme.PRIMARY, theme.BOLD)}"
+        f"{theme.dim(f' v{version}')}{' ' * pad1} "
     )
-    line2_inner = f" {_DIM}{r2.ljust(content_w)}{r} "
-    line3_inner = f" {_DIM}{r3.ljust(content_w)}{r} "
+    line2_inner = f" {theme.dim(r2.ljust(content_w))} "
+    line3_inner = f" {theme.dim(r3.ljust(content_w))} "
 
+    b = theme.PANEL
+    r = theme.RESET
     print(f"{b}┌{'─' * h_inner}┐{r}")
     print(f"{b}│{r}{line1_inner}{b}│{r}")
     print(f"{b}│{r}{line2_inner}{b}│{r}")
@@ -199,26 +190,86 @@ def _print_meta_box(workdir: Path, model: str, version: str) -> None:
 def _print_welcome(workdir: Path, model: str) -> None:
     width = _terminal_width()
     rule = "·" * width
-    print(f"{_DIM}{rule}{_RESET}")
+    print(theme.dim(rule))
     for line in _pixel_ultracode_lines():
         print(_nanocode_style_pixel_line(line))
     print()
-    print(f"{_BLUE_ACCENT}  > build with flow, code with focus{_RESET}")
+    print(f"  {theme.gold('ready')} {theme.dim('build with flow, code with focus')}")
     _print_meta_box(workdir, model, __version__)
-    print(f"{_DIM}/help  /todo  /tasks  /tools  /memories  /clear  /exit{_RESET}")
-    print(f"{_DIM}{rule}{_RESET}\n")
+    _print_chips(["/help", "/todo", "/tasks", "/tools", "/memories", "/clear", "/exit"])
+    print(theme.dim(rule) + "\n")
 
 
 def _print_assistant(text: str) -> None:
     width = _terminal_width()
     wrap_width = max(40, width - 6)
-    print(f"{_DIM}assistant{_RESET}")
+    print(theme.badge("assistant", "primary"))
     border = theme.assistant_left_border_prefix()
     text = format_assistant_markdown(text)
     for raw in text.splitlines() or [""]:
         wrapped = textwrap.wrap(raw, width=wrap_width) or [""]
         for line in wrapped:
             print(f"{border}{line}")
+
+
+def _print_chips(items: list[str]) -> None:
+    print("  " + " ".join(theme.badge(item, "muted") for item in items))
+
+
+def _print_panel(title: str, lines: list[str], tone: str = "primary") -> None:
+    width = _terminal_width()
+    plain_lines = [theme.strip_ansi(line) for line in lines] or [""]
+    content_w = min(
+        max([len(title), *(len(line) for line in plain_lines)], default=0),
+        width - 6,
+    )
+    color = theme.PRIMARY if tone == "primary" else theme.PANEL
+    print(
+        f"{color}┌─ {theme.bold(title)} "
+        f"{'─' * max(0, content_w - len(title) - 1)}┐{theme.RESET}"
+    )
+    for line in lines or [""]:
+        clipped = theme.truncate(line, content_w)
+        print(
+            f"{color}│{theme.RESET} {theme.pad_right(clipped, content_w)} "
+            f"{color}│{theme.RESET}"
+        )
+    print(f"{color}└{'─' * (content_w + 2)}┘{theme.RESET}")
+
+
+def _print_table(title: str, headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> None:
+    if not rows:
+        _print_panel(title, [theme.dim("(none)")])
+        return
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], theme.visible_len(cell))
+    tw = _terminal_width()
+    total = sum(widths) + 3 * (len(widths) - 1)
+    if total > tw - 4 and widths:
+        widths[-1] = max(16, widths[-1] - (total - (tw - 4)))
+
+    header_line = "   ".join(
+        theme.pad_right(theme.muted(h), widths[i]) for i, h in enumerate(headers)
+    )
+    body = [header_line, theme.dim("─" * min(tw - 4, theme.visible_len(header_line)))]
+    for row in rows:
+        body.append(
+            "   ".join(
+                theme.pad_right(theme.truncate(cell, widths[i]), widths[i])
+                for i, cell in enumerate(row)
+            )
+        )
+    _print_panel(title, body, tone="panel")
+
+
+def _print_wrapped_text(title: str, text: str) -> None:
+    width = _terminal_width()
+    lines: list[str] = []
+    for raw in text.splitlines() or [""]:
+        lines.extend(textwrap.wrap(raw, width=max(40, width - 8)) or [""])
+    _print_panel(title, lines)
 
 
 def _handle_slash(
@@ -236,43 +287,97 @@ def _handle_slash(
     if cmd in ("/exit", "/quit", "/q"):
         raise SystemExit(0)
     elif cmd == "/help":
-        print(
-            "/todo              — show session plan\n"
-            "/tasks             — list persistent tasks\n"
-            "/tools             — list registered tools\n"
-            "/mcp               — list MCP-prefixed tools\n"
-            "/memories          — list loaded memories\n"
-            "/mode <default|plan|auto>  — switch permission mode\n"
-            "/rules             — show permission rules\n"
-            "/clear             — clear conversation history\n"
-            "/exit              — quit"
+        _print_table(
+            "Commands",
+            ("command", "action"),
+            [
+                (theme.primary("/todo"), "show session plan"),
+                (theme.primary("/tasks"), "list persistent tasks"),
+                (theme.primary("/tools"), "list registered tools"),
+                (theme.primary("/mcp"), "list MCP-prefixed tools"),
+                (theme.primary("/memories"), "list loaded memories"),
+                (theme.primary("/mode default|plan|auto"), "switch permission mode"),
+                (theme.primary("/rules"), "show permission rules"),
+                (theme.primary("/clear"), "clear conversation history"),
+                (theme.primary("/exit"), "quit"),
+            ],
         )
     elif cmd == "/todo":
-        print(todo_mgr.render())
+        _print_wrapped_text("Todo", todo_mgr.render())
     elif cmd == "/tasks":
-        print(task_mgr.list_all())
+        _print_wrapped_text("Tasks", task_mgr.list_all())
     elif cmd == "/tools":
-        print("Registered tools:", ", ".join(registry.names()))
+        names = sorted(registry.names())
+        rows = [(theme.primary(n), _tool_group(n)) for n in names]
+        _print_table("Tools", ("name", "group"), rows)
     elif cmd == "/mcp":
-        mcp_names = [n for n in registry.names() if n.startswith("mcp__")]
-        print(f"MCP tools ({len(mcp_names)}):", ", ".join(mcp_names) if mcp_names else "(none)")
+        mcp_names = sorted(n for n in registry.names() if n.startswith("mcp__"))
+        rows = [(theme.primary(n), _mcp_server_name(n)) for n in mcp_names]
+        _print_table(f"MCP Tools ({len(mcp_names)})", ("tool", "server"), rows)
     elif cmd == "/memories":
         if not memory_mgr.memories:
-            print("No memories loaded.")
+            _print_panel("Memories", [theme.dim("No memories loaded.")])
         else:
+            rows = []
             for name, m in memory_mgr.memories.items():
-                print(f"  [{m['type']}] {name}: {m['description']}")
+                rows.append((theme.primary(name), str(m["type"]), str(m["description"])))
+            _print_table("Memories", ("name", "type", "description"), rows)
     elif cmd == "/mode":
         if args and args[0] in ("default", "plan", "auto"):
             perm_mgr.mode = args[0]
-            print(f"[Mode: {args[0]}]")
+            _print_panel(
+                "Mode",
+                [f"{theme.status_dot('ok')} permission mode: {theme.gold(args[0])}"],
+            )
         else:
-            print(f"Usage: /mode <default|plan|auto>  (current: {perm_mgr.mode})")
+            _print_panel(
+                "Mode",
+                [
+                    f"Usage: {theme.primary('/mode <default|plan|auto>')}",
+                    f"Current: {theme.gold(perm_mgr.mode)}",
+                ],
+            )
     elif cmd == "/rules":
-        for i, rule in enumerate(perm_mgr.rules):
-            print(f"  {i}: {rule}")
+        rows = [
+            (
+                theme.dim(str(i)),
+                theme.primary(str(rule.get("tool", "*"))),
+                str(rule.get("behavior", "")),
+                _rule_match_summary(rule),
+            )
+            for i, rule in enumerate(perm_mgr.rules)
+        ]
+        _print_table("Permission Rules", ("#", "tool", "behavior", "match"), rows)
     elif cmd == "/clear":
         history.clear()
-        print("History cleared.")
+        _print_panel("History", [f"{theme.status_dot('ok')} cleared"])
     else:
-        print(f"Unknown command: {query}")
+        _print_panel("Unknown Command", [f"{theme.warn(query)}", "Try /help."])
+
+
+def _tool_group(name: str) -> str:
+    if name.startswith("mcp__"):
+        return "mcp"
+    if name.startswith("task_"):
+        return "tasks"
+    if name.startswith("background_"):
+        return "background"
+    if name in {"read_file", "write_file", "edit_file", "bash"}:
+        return "workspace"
+    if name in {"todo", "git_worktree_list", "subagent_call"}:
+        return "agent"
+    return "other"
+
+
+def _mcp_server_name(name: str) -> str:
+    parts = name.split("__", 2)
+    return parts[1] if len(parts) == 3 else ""
+
+
+def _rule_match_summary(rule: dict) -> str:
+    bits = []
+    if "path" in rule:
+        bits.append(f"path={rule['path']}")
+    if "content" in rule:
+        bits.append(f"content={rule['content']}")
+    return ", ".join(bits) or "*"

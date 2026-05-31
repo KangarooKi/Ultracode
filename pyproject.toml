@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ultracode"
+version = "0.1.0"
+description = "UltraCode - AI-assisted coding tool in Claude Code style"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.30",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+]
+
+[project.scripts]
+ultra = "aicode.cli.main:main"
+ultracode = "aicode.cli.main:main"
+aicode = "aicode.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aicode*"]
+
+# 禁用本机全局 pytest 插件（必须用 setuptools 注册名，否则 -p no:xxx 不生效）：
+# - langsmith_plugin：常连外网，VPN/代理异常时会长时间卡住
+# - asyncio：来自 pytest-asyncio；本项目测试无 async，可关
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-p", "no:langsmith_plugin",
+    "-p", "no:asyncio",
+    "-p", "no:anyio",
+]

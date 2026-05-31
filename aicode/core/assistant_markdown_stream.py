@@ -11,6 +11,7 @@ from aicode.core.markdown_terminal import (
     _BOLD_RE,
     _RESET,
     _is_table_row_line,
+    format_fenced_code,
     format_markdown_line,
     format_plain_segment,
 )
@@ -96,13 +97,14 @@ class AssistantMarkdownStreamWriter:
     包装底层 write；流结束后必须调用 flush()。
     """
 
-    __slots__ = ("_write", "_buf", "_in_fence", "_table_lines")
+    __slots__ = ("_write", "_buf", "_in_fence", "_table_lines", "_fence_buf")
 
     def __init__(self, write: Callable[[str], None]) -> None:
         self._write = write
         self._buf = ""
         self._in_fence = False
         self._table_lines: list[str] = []
+        self._fence_buf = ""
 
     def write(self, piece: str) -> None:
         if not piece:
@@ -114,8 +116,11 @@ class AssistantMarkdownStreamWriter:
         if self._in_fence:
             self._flush_table()
             if self._buf:
-                self._write(self._buf)
+                self._fence_buf += self._buf
                 self._buf = ""
+            self._write(format_fenced_code(self._fence_buf + "```"))
+            self._fence_buf = ""
+            self._in_fence = False
             return
         if self._buf:
             self._emit_plain(self._buf)
@@ -148,10 +153,15 @@ class AssistantMarkdownStreamWriter:
                 if idx < 0:
                     h = _fence_hold_suffix_len(self._buf)
                     if h and len(self._buf) > h:
-                        self._write(self._buf[:-h])
+                        self._fence_buf += self._buf[:-h]
                         self._buf = self._buf[-h:]
+                    elif not h:
+                        self._fence_buf += self._buf
+                        self._buf = ""
                     return
-                self._write(self._buf[: idx + 3])
+                self._fence_buf += self._buf[: idx + 3]
+                self._write(format_fenced_code(self._fence_buf))
+                self._fence_buf = ""
                 self._buf = self._buf[idx + 3 :]
                 self._in_fence = False
                 continue
@@ -184,16 +194,16 @@ class AssistantMarkdownStreamWriter:
                         self._flush_table()
                         self._write(format_markdown_line(tail))
                     self._flush_table()
-                    self._write("```")
+                    self._fence_buf = "```"
                     self._buf = after
                 else:
                     self._flush_table()
                     self._write(format_markdown_line(before))
-                    self._write("```")
+                    self._fence_buf = "```"
                     self._buf = after
             else:
                 self._flush_table()
-                self._write("```")
+                self._fence_buf = "```"
                 self._buf = after
             self._in_fence = True
             continue

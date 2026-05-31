@@ -30,11 +30,23 @@ def test_bold_multiple_segments():
     assert s.count("\033[1m") == 2
 
 
-def test_no_change_inside_fence():
+def test_code_fence_renders_as_panel_without_inline_markdown():
     raw = "Use `**` like this:\n```\n**not bold**\n```\nDone **yes**."
     s = format_assistant_markdown(raw)
+    plain = _strip_ansi(s)
     assert "**not bold**" in s
     assert "\033[1myes\033[0m" in s
+    assert "```" not in plain
+    assert "╭─ code" in plain
+
+
+def test_python_code_fence_shows_language_label():
+    raw = "```python\ndef hello():\n    print('hi')\n```"
+    s = _strip_ansi(format_assistant_markdown(raw))
+    assert "╭─ python" in s
+    assert "│ def hello():" in s
+    assert "│     print('hi')" in s
+    assert "```python" not in s
 
 
 def test_empty():
@@ -86,8 +98,25 @@ def test_stream_fence_keeps_inner_stars():
     w.write("`\n**yes**")
     w.flush()
     joined = "".join(out)
+    plain = _strip_ansi(joined)
     assert "**no**" in joined
     assert "\033[1myes\033[0m" in joined
+    assert "```" not in plain
+    assert "╭─ code" in plain
+
+
+def test_stream_python_fence_renders_after_close():
+    out: list[str] = []
+    w = AssistantMarkdownStreamWriter(out.append)
+    w.write("```py")
+    assert "".join(out) == ""
+    w.write("thon\nprint('hi')\n")
+    assert "".join(out) == ""
+    w.write("```")
+    joined = _strip_ansi("".join(out))
+    assert "╭─ python" in joined
+    assert "│ print('hi')" in joined
+    assert "```" not in joined
 
 
 def test_heading_atx_bold_body():

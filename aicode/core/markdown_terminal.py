@@ -9,7 +9,7 @@
 - 行内 `code`：暗底高亮（轻量）
 - 分隔线 ---/***：暗淡横线
 - GFM 表格（| 列 | + |---| 分隔行）：按列宽补空格对齐竖线
-- ``` 围栏：由 format_assistant_markdown 整体跳过内部处理
+- ``` 围栏：渲染为代码块面板；内部原样保留
 """
 from __future__ import annotations
 
@@ -137,6 +137,35 @@ def _display_width(s: str) -> int:
     return w
 
 
+def format_fenced_code(raw: str) -> str:
+    """Render a fenced code block while preserving code text exactly."""
+    if not raw.startswith("```"):
+        return raw
+
+    inner = raw[3:]
+    if inner.endswith("```"):
+        inner = inner[:-3]
+
+    header, sep, body = inner.partition("\n")
+    lang = header.strip() if sep else ""
+    if not sep:
+        body = ""
+    label = lang or "code"
+
+    code_lines = body.splitlines()
+    if not code_lines:
+        code_lines = [""]
+
+    label_plain = label[:32]
+    top = f"{_DIM}╭─ {_BOLD}{label_plain}{_RESET}"
+    bottom = f"{_DIM}╰─{_RESET}"
+    rendered = [top]
+    for line in code_lines:
+        rendered.append(f"{_DIM}│{_RESET} {line.expandtabs(4)}")
+    rendered.append(bottom)
+    return "\n".join(rendered)
+
+
 def _format_gfm_tables(text: str) -> str:
     """
     将连续的 GFM 表格块（表头 + |---| + 数据行）转为列对齐的终端行。
@@ -216,7 +245,7 @@ def format_plain_segment(text: str) -> str:
 
 def format_assistant_markdown(text: str) -> str:
     """
-    将 Markdown 常见结构转为终端样式；```...``` 内原样保留。
+    将 Markdown 常见结构转为终端样式；```...``` 渲染为代码块面板。
     """
     if not text:
         return text
@@ -224,7 +253,7 @@ def format_assistant_markdown(text: str) -> str:
     pos = 0
     for m in _FENCE_RE.finditer(text):
         parts.append(format_plain_segment(text[pos : m.start()]))
-        parts.append(m.group(0))
+        parts.append(format_fenced_code(m.group(0)))
         pos = m.end()
     parts.append(format_plain_segment(text[pos:]))
     return "".join(parts)

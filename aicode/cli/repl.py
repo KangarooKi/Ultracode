@@ -207,7 +207,10 @@ def _print_assistant(text: str) -> None:
     border = theme.assistant_left_border_prefix()
     text = format_assistant_markdown(text)
     for raw in text.splitlines() or [""]:
-        if raw.strip().startswith("|") and raw.strip().endswith("|"):
+        plain = theme.strip_ansi(raw).strip()
+        if (
+            plain.startswith("|") and plain.endswith("|")
+        ) or plain.startswith(("╭─", "│ ", "╰─")):
             print(f"{border}{raw}")
             continue
         wrapped = textwrap.wrap(raw, width=wrap_width) or [""]

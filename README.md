@@ -4,7 +4,7 @@
 
 | 项目 | 说明 |
 |------|------|
-| PyPI/包名 | `ultracode`（源码目录为 `aicode/`） |
+| PyPI/包名 | `ultracode`（源码目录为 `src/aicode/`） |
 | Python | ≥ 3.11 |
 | 入口命令 | `ultracode` / `ultra` / `aicode` |
 
@@ -30,7 +30,7 @@
 ## 安装
 
 ```bash
-cd /path/to/aicode   # 本仓库根目录（含 pyproject.toml）
+cd /path/to/Ultracode   # 本仓库根目录（含 pyproject.toml）
 pip install -e .
 ```
 

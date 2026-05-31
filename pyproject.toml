@@ -24,8 +24,11 @@ ultra = "aicode.cli.main:main"
 ultracode = "aicode.cli.main:main"
 aicode = "aicode.cli.main:main"
 
+[tool.setuptools.package-dir]
+"" = "src"
+
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["aicode*"]
 
 # 禁用本机全局 pytest 插件（必须用 setuptools 注册名，否则 -p no:xxx 不生效）：
@@ -33,6 +36,7 @@ include = ["aicode*"]
 # - asyncio：来自 pytest-asyncio；本项目测试无 async，可关
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 addopts = [
     "-p", "no:langsmith_plugin",
     "-p", "no:asyncio",

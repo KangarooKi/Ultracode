@@ -76,19 +76,19 @@ flowchart TB
 
 | 路径 | 职责 |
 |------|------|
-| `aicode/cli/` | 入口、REPL、会话组装、主题色、输出格式化入口 |
-| `aicode/core/` | 配置、客户端、主循环、工具实现与注册、等待提示、LLM 流式类型、终端 Markdown 管线 |
-| `aicode/prompt/` | `SystemPromptBuilder` 与各段落（core、工具列表、技能、记忆、CLAUDE/AGENTS、动态上下文） |
-| `aicode/security/` | 权限决策、bash 校验、工作区信任 |
-| `aicode/hooks/` | `.hooks.json` 加载与执行、HookMiddleware |
-| `aicode/background/` | 后台进程管理、通知队列、工具注册与 Middleware |
-| `aicode/planning/` | 任务图（`.tasks`）、Todo 计划与中间件 |
-| `aicode/memory/` | 记忆加载/保存、可选 Dream 巩固门控 |
-| `aicode/context/` | 压缩策略、transcript、CompactMiddleware |
-| `aicode/recovery/` | Recovery 配置、策略、RecoveryMiddleware |
-| `aicode/mcp/` | 连接 MCP、路由、桥接到 ToolRegistry |
-| `aicode/subagent/` | 子 Agent 循环隔离、`spawn_subagent`、模板 |
-| `aicode/worktrees/` | git worktree 列表工具 |
+| `src/aicode/cli/` | 入口、REPL、会话组装、主题色、输出格式化入口 |
+| `src/aicode/core/` | 配置、客户端、主循环、工具实现与注册、等待提示、LLM 流式类型、终端 Markdown 管线 |
+| `src/aicode/prompt/` | `SystemPromptBuilder` 与各段落（core、工具列表、技能、记忆、CLAUDE/AGENTS、动态上下文） |
+| `src/aicode/security/` | 权限决策、bash 校验、工作区信任 |
+| `src/aicode/hooks/` | `.hooks.json` 加载与执行、HookMiddleware |
+| `src/aicode/background/` | 后台进程管理、通知队列、工具注册与 Middleware |
+| `src/aicode/planning/` | 任务图（`.tasks`）、Todo 计划与中间件 |
+| `src/aicode/memory/` | 记忆加载/保存、可选 Dream 巩固门控 |
+| `src/aicode/context/` | 压缩策略、transcript、CompactMiddleware |
+| `src/aicode/recovery/` | Recovery 配置、策略、RecoveryMiddleware |
+| `src/aicode/mcp/` | 连接 MCP、路由、桥接到 ToolRegistry |
+| `src/aicode/subagent/` | 子 Agent 循环隔离、`spawn_subagent`、模板 |
+| `src/aicode/worktrees/` | git worktree 列表工具 |
 | `tests/` | phase1/phase2 分阶段测试与 `conftest` mock LLM |
 
 ---

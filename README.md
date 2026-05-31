@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/UltraCode_logo.png" alt="UltraCode logo" width="420">
+  <img src="assets/UltraCode_logo.png" alt="UltraCode logo" width="640">
 </p>
 
 # UltraCode

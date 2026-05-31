@@ -266,7 +266,7 @@ def _call_llm(config: AgentLoopConfig, api_messages: list, state: LoopState) -> 
             chain = prefix_sink.write
 
         md_stream: AssistantMarkdownStreamWriter | None = None
-        if config.stream_writer is None and not os.environ.get("NO_COLOR", "").strip():
+        if config.stream_writer is None and _stream_markdown_enabled():
             md_stream = AssistantMarkdownStreamWriter(chain)
             chain = md_stream.write
 
@@ -337,6 +337,16 @@ def _call_llm(config: AgentLoopConfig, api_messages: list, state: LoopState) -> 
             raise
 
     raise RuntimeError("_call_llm: retry loop exhausted without returning")  # pragma: no cover
+
+
+def _stream_markdown_enabled() -> bool:
+    """Respect AICODE_COLOR overrides before falling back to NO_COLOR."""
+    forced = os.environ.get("AICODE_COLOR", "").strip().lower()
+    if forced in {"1", "true", "yes", "on", "always"}:
+        return True
+    if forced in {"0", "false", "no", "off", "never"}:
+        return False
+    return not os.environ.get("NO_COLOR", "").strip()
 
 
 def _notify_pre_assistant_output(config: AgentLoopConfig, state: LoopState) -> None:

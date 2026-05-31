@@ -226,6 +226,15 @@ def test_stream_gfm_table_waits_for_complete_block():
     assert joined.index("| R") < joined.index("Done")
 
 
+def test_stream_markdown_enabled_respects_aicode_color_override(monkeypatch):
+    from aicode.core.loop import _stream_markdown_enabled
+
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("AICODE_COLOR", "1")
+
+    assert _stream_markdown_enabled() is True
+
+
 def test_stream_heading_split_chunks():
     out: list[str] = []
     w = AssistantMarkdownStreamWriter(out.append)

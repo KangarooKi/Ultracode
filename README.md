@@ -4,45 +4,46 @@
 
 # UltraCode
 
-类 **Claude Code** 风格的本地 **AI 辅助编程 CLI**：在指定工作区内通过 OpenAI 兼容 API 调用大模型，使用 **工具调用（function calling）** 完成读文件、写文件、执行命令、任务规划、MCP 集成等操作。
+UltraCode is a local AI-assisted coding CLI inspired by Claude Code. It works inside a chosen workspace, talks to any OpenAI-compatible model API, and uses tool calling to read files, edit code, run commands, manage tasks, connect MCP servers, and keep project context.
 
 <p align="center">
   <img src="assets/ultracode_demo.gif" alt="UltraCode CLI demo" width="760">
 </p>
 
-| 项目 | 说明 |
-|------|------|
-| PyPI/包名 | `ultracode`（源码目录为 `src/aicode/`） |
-| Python | ≥ 3.11 |
-| 入口命令 | `ultracode` / `ultra` / `aicode` |
+| Item | Details |
+|------|---------|
+| Package | `ultracode` |
+| Source layout | `src/aicode/` |
+| Python | `>=3.11` |
+| CLI commands | `ultracode` / `ultra` / `aicode` |
 
 ---
 
-## 功能概览
+## Features
 
-- **交互式 REPL**：多轮对话、会话内历史、流式输出（TTY 下）、Markdown 友好终端渲染（标题、列表、粗体、GFM 表格对齐等）。
-- **单次执行**：`ultracode run "你的需求"`，适合脚本或 CI。
-- **基础工具**：`read_file`、`write_file`、`edit_file`、`bash`（工作区路径约束 + 危险命令拦截）。
-- **后台任务**：`background_run` / `background_check` / `background_cancel`（适合长时间命令或带窗口的 GUI 程序）。
-- **任务与待办**：持久化 `.tasks/`、`task_*` 工具；会话内 `todo` 与 `TodoMiddleware` 提醒。
-- **记忆**：`.memory/` 下 Markdown 记忆文件，注入系统提示。
-- **MCP**：通过配置连接 MCP 服务器，工具以 `mcp__*` 前缀注册。
-- **子代理**：`subagent_call`，可选 `skills/` 下模板。
-- **权限**：`default` / `plan` / `auto` 模式；`write_file` / `edit_file` 确认前展示**内容预览**。
-- **可选恢复**：上下文过长压缩、网络退避（环境变量控制）。
-- **钩子**：`.hooks.json` + 工作区信任标记。
-- **上下文压缩**：大工具输出落盘、micro-compact、可选 LLM 摘要（CompactMiddleware）。
+- **Interactive REPL**: multi-turn sessions, in-session history, streaming output in TTYs, and terminal-friendly Markdown rendering.
+- **One-shot runs**: `ultracode run "your request"` for scripts, automation, and CI-style usage.
+- **Core tools**: `read_file`, `write_file`, `edit_file`, and `bash`, all scoped to the selected workspace.
+- **Background tasks**: `background_run`, `background_check`, and `background_cancel` for long-running commands or GUI/game workflows.
+- **Task planning**: persistent `.tasks/` plus session-level `todo` updates and reminders.
+- **Memory**: Markdown memory files under `.memory/`, injected into the system prompt.
+- **MCP support**: connect MCP servers and expose tools with the `mcp__*` prefix.
+- **Subagents**: `subagent_call` with optional templates under `skills/`.
+- **Permissions**: `default`, `plan`, and `auto` modes; write/edit tools show content previews before approval.
+- **Recovery**: optional context compaction, retry/backoff, and continuation helpers.
+- **Hooks**: `.hooks.json` support with workspace trust checks.
+- **Context compaction**: large tool outputs can be written to disk and summarized when needed.
 
 ---
 
-## 安装
+## Installation
 
 ```bash
-cd /path/to/Ultracode   # 本仓库根目录（含 pyproject.toml）
+cd /path/to/Ultracode   # repository root, containing pyproject.toml
 pip install -e .
 ```
 
-运行依赖见 `pyproject.toml`（`openai`、`python-dotenv`）。如果要运行测试或参与开发：
+Runtime dependencies are listed in `pyproject.toml` (`openai`, `python-dotenv`). For development and tests:
 
 ```bash
 pip install -e ".[dev]"
@@ -50,91 +51,90 @@ pip install -e ".[dev]"
 
 ---
 
-## 配置
+## Configuration
 
-在项目或通过 `-C DIR` 指定的工作区使用 **`.env`**（或通过环境变量）。首次运行会由 `python-dotenv` 加载（不覆盖已存在的环境变量）。
+Create a `.env` file in the project/workspace, or provide the same values through environment variables. UltraCode loads `.env` with `python-dotenv` and does not overwrite variables that are already set.
 
-| 变量 | 含义 | 示例/默认 |
-|------|------|-----------|
-| `LLM_API_KEY` 或 `OPENAI_API_KEY` | API 密钥 | 必填 |
-| `LLM_MODEL` | 模型名 | 必填 |
-| `LLM_BASE_URL` | 兼容 OpenAI 的 Base URL | 可选，默认官方 |
-| `LLM_MAX_TOKENS` / `AICODE_MAX_TOKENS` | 每轮 max_tokens | 默认 8000 |
-| `LLM_MAX_TURNS` / `AICODE_MAX_TURNS` | 最大对话轮次上限 | 默认 100 |
-| `AICODE_STREAM` | 是否在 TTY 上流式输出助手正文 | 默认 `1`/`true` |
-| `AICODE_ENABLE_RECOVERY` | 是否启用恢复中间件与循环内 recovery | 默认关 |
-| `AICODE_RECOVERY_MAX_RETRIES` | recovery 最大重试 | 默认 3 |
-| `AICODE_NO_WAIT_HINT` | 关闭 LLM 等待时的 stderr 轮换提示 | `1` 关闭 |
-| `AICODE_BASH_TIMEOUT` | `bash` 工具子进程超时（秒） | 默认 120；测试可能设更短 |
-| `AICODE_COLOR` | 强制开启/关闭 CLI 颜色 | `1` 开启，`0` 关闭 |
-| `AICODE_AUTO_APPROVE_READONLY_BASH` | 自动放行明确只读的 bash 命令 | 默认 `1` |
-| `NO_COLOR` | 禁用 ANSI 颜色（含流式 Markdown 粗体等） | 可选 |
+| Variable | Meaning | Example / Default |
+|----------|---------|-------------------|
+| `LLM_API_KEY` or `OPENAI_API_KEY` | API key | Required |
+| `LLM_MODEL` | Model name | Required |
+| `LLM_BASE_URL` | OpenAI-compatible base URL | Optional; defaults to the official OpenAI endpoint |
+| `LLM_MAX_TOKENS` / `AICODE_MAX_TOKENS` | Max tokens per turn | `8000` |
+| `LLM_MAX_TURNS` / `AICODE_MAX_TURNS` | Max loop turns | `100` |
+| `AICODE_STREAM` | Stream assistant text in TTY mode | `1` / `true` |
+| `AICODE_ENABLE_RECOVERY` | Enable recovery middleware | Off by default |
+| `AICODE_RECOVERY_MAX_RETRIES` | Max recovery retries | `3` |
+| `AICODE_NO_WAIT_HINT` | Disable stderr wait hints | Set `1` to disable |
+| `AICODE_BASH_TIMEOUT` | `bash` tool timeout, in seconds | `120` |
+| `AICODE_COLOR` | Force CLI color on/off | `1` on, `0` off |
+| `AICODE_AUTO_APPROVE_READONLY_BASH` | Auto-approve clearly read-only shell commands | `1` |
+| `NO_COLOR` | Disable ANSI colors | Optional |
 
-工作区根目录默认 **`cwd`**，可用 `-C DIR` 指定。
+The workspace defaults to the current directory. Use `-C DIR` / `--cwd DIR` to choose another workspace.
 
 ---
 
-## 使用方式
+## Usage
 
 ```bash
-# 交互式（默认）
+# Interactive mode
 ultracode
 ultracode repl
-ultracode -C D:\myproject
+ultracode -C /path/to/project
 
-# 单次提问
-ultracode run 用一句话说明当前目录结构
-ultracode run -v "带工具摘要的详细任务"
+# One-shot request
+ultracode run "Summarize this repository structure"
+ultracode run -v "Inspect the codebase and suggest the next cleanup step"
 
-# 从管道读入用户消息
-echo 总结 main.py | ultracode run -
+# Read a prompt from stdin
+echo "Summarize main.py" | ultracode run -
 
-# 无需 API 的子命令
+# Commands that do not require an API key
 ultracode tasks
 ultracode worktrees
 
 ultracode --version
 ```
 
-### REPL 内命令（以 `/` 开头）
+### REPL Commands
 
-| 命令 | 作用 |
-|------|------|
-| `/help` | 帮助 |
-| `/todo` `/tasks` `/tools` `/mcp` `/memories` | 查看计划、任务、工具、MCP、记忆 |
-| `/mode default\|plan\|auto` | 权限模式 |
-| `/rules` | 权限规则列表 |
-| `/clear` | 清空本会话历史 |
-| `/exit` | 退出 |
-
----
-
-## 工作区常见路径
-
-| 路径 | 用途 |
-|------|------|
-| `.tasks/` | 持久化任务图 |
-| `.memory/` | 记忆 Markdown（含索引 `MEMORY.md`） |
-| `.runtime-tasks/` | 后台任务状态与日志 |
-| `skills/` | 子代理模板（含 `SKILL.md`） |
-| `CLAUDE.md` / `AGENTS.md` | 项目与用户规则，注入系统提示 |
-| `.hooks.json` | 钩子定义（需配合信任标记） |
+| Command | Action |
+|---------|--------|
+| `/help` | Show help |
+| `/todo` `/tasks` `/tools` `/mcp` `/memories` | Inspect plans, tasks, tools, MCP status, and memories |
+| `/mode default\|plan\|auto` | Change permission mode |
+| `/rules` | Show permission rules |
+| `/clear` | Clear the current session history |
+| `/exit` | Quit |
 
 ---
 
-## 开发与测试
+## Workspace Files
+
+| Path | Purpose |
+|------|---------|
+| `.tasks/` | Persistent task graph |
+| `.memory/` | Markdown memories, including `MEMORY.md` |
+| `.runtime-tasks/` | Background task state and logs |
+| `skills/` | Subagent templates with `SKILL.md` |
+| `CLAUDE.md` / `AGENTS.md` | Project rules injected into the system prompt |
+| `.hooks.json` | Hook definitions, guarded by workspace trust |
+
+---
+
+## Development
 
 ```bash
 pip install -e ".[dev]"
-# 建议在干净环境下运行；若本机全局 pytest 插件拖慢/卡住，项目已配置禁用部分插件
 python -m pytest tests/ -q
 ```
 
-更完整的架构说明见 **[TECHNICAL_REPORT.md](./TECHNICAL_REPORT.md)**。
+The full architecture notes are in [TECHNICAL_REPORT.md](./TECHNICAL_REPORT.md).
 
 ---
 
-## 说明
+## Notes
 
-- **GUI / 游戏**：`bash` 会等待进程结束且可能超时；长时间或带窗口的程序请用 **`background_run`**，或在本机终端手动运行。
-- **安全**：涉及写盘、执行命令时请在 **`default`** 模式下仔细阅读确认提示与 **`write_file` 内容预览**。
+- **GUI apps and games**: the `bash` tool waits for commands to finish and may time out. Use `background_run` for long-running or windowed programs, or run them manually in a local terminal.
+- **Safety**: in `default` mode, review permission prompts carefully before allowing writes or command execution. `write_file` and `edit_file` show previews before changes are applied.

@@ -239,7 +239,7 @@ def build_repl_context(
     middleware.append(BackgroundMiddleware(bg_manager))
 
     if not quiet_tools:
-        middleware.insert(0, PrintingMiddleware())
+        middleware.insert(2, PrintingMiddleware())
 
     stream_on = cfg.stream_llm and sys.stdout.isatty()
     loop_cfg = AgentLoopConfig(

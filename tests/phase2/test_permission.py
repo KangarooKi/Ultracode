@@ -74,6 +74,42 @@ class TestPermissionManagerCheck:
         # 默认模式下无匹配 allow rule → ask
         assert r["behavior"] in ("ask", "allow")
 
+    def test_readonly_bash_auto_allowed_by_default(self):
+        pm = PermissionManager()
+        r = pm.check("bash", {"command": "ls -la"})
+        assert r["behavior"] == "allow"
+        assert "read-only" in r["reason"].lower()
+
+    def test_readonly_git_auto_allowed_by_default(self):
+        pm = PermissionManager()
+        r = pm.check("bash", {"command": "git status --short"})
+        assert r["behavior"] == "allow"
+
+    def test_readonly_bash_pipeline_auto_allowed_by_default(self):
+        pm = PermissionManager()
+        r = pm.check("bash", {"command": "ls -la | head -2"})
+        assert r["behavior"] == "allow"
+
+    def test_mutating_pipeline_still_asks(self):
+        pm = PermissionManager()
+        r = pm.check("bash", {"command": "find . -name '*.pyc' | xargs rm"})
+        assert r["behavior"] == "ask"
+
+    def test_mutating_git_still_asks(self):
+        pm = PermissionManager()
+        r = pm.check("bash", {"command": "git checkout main"})
+        assert r["behavior"] == "ask"
+
+    def test_find_delete_still_asks(self):
+        pm = PermissionManager()
+        r = pm.check("bash", {"command": "find . -name '*.pyc' -delete"})
+        assert r["behavior"] == "ask"
+
+    def test_plan_mode_allows_readonly_bash(self):
+        pm = PermissionManager(mode="plan")
+        r = pm.check("bash", {"command": "rg TODO"})
+        assert r["behavior"] == "allow"
+
     def test_read_file_always_allowed(self):
         pm = PermissionManager()
         r = pm.check("read_file", {"path": "README.md"})

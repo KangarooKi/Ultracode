@@ -59,6 +59,7 @@ pip install -e ".[dev]"
 | `AICODE_NO_WAIT_HINT` | 关闭 LLM 等待时的 stderr 轮换提示 | `1` 关闭 |
 | `AICODE_BASH_TIMEOUT` | `bash` 工具子进程超时（秒） | 默认 120；测试可能设更短 |
 | `AICODE_COLOR` | 强制开启/关闭 CLI 颜色 | `1` 开启，`0` 关闭 |
+| `AICODE_AUTO_APPROVE_READONLY_BASH` | 自动放行明确只读的 bash 命令 | 默认 `1` |
 | `NO_COLOR` | 禁用 ANSI 颜色（含流式 Markdown 粗体等） | 可选 |
 
 工作区根目录默认 **`cwd`**，可用 `-C DIR` 指定。

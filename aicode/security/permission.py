@@ -13,6 +13,9 @@ security/permission.py — 权限管理（PermissionManager + PermissionMiddlewa
 from __future__ import annotations
 
 import json
+import os
+import re
+import shlex
 from fnmatch import fnmatch
 from pathlib import Path
 
@@ -46,6 +49,39 @@ DEFAULT_RULES: list[dict] = [
 ]
 
 _validator = BashSecurityValidator()
+
+_READONLY_BASH_COMMANDS = frozenset({
+    "cat",
+    "cut",
+    "du",
+    "file",
+    "find",
+    "grep",
+    "head",
+    "ls",
+    "nl",
+    "pwd",
+    "rg",
+    "sort",
+    "stat",
+    "tail",
+    "tree",
+    "uniq",
+    "wc",
+})
+_READONLY_GIT_SUBCOMMANDS = frozenset({
+    "branch",
+    "diff",
+    "grep",
+    "log",
+    "ls-files",
+    "remote",
+    "rev-parse",
+    "show",
+    "status",
+    "tag",
+    "worktree",
+})
 
 # write_file 确认前内容预览（避免只看 path/字节数）
 _WRITE_PREVIEW_MAX_LINES = 56
@@ -167,6 +203,52 @@ def _mcp_tool_read_like(tool_name: str) -> bool:
     return any(inner.startswith(p) for p in ("read", "list", "get", "fetch", "search", "query", "show"))
 
 
+def _auto_approve_readonly_bash() -> bool:
+    raw = os.environ.get("AICODE_AUTO_APPROVE_READONLY_BASH", "1").strip().lower()
+    return raw not in {"0", "false", "no", "off", "never"}
+
+
+def _is_readonly_bash(command: str) -> bool:
+    if not _auto_approve_readonly_bash():
+        return False
+    if _validator.severity(command) == "severe":
+        return False
+    if re.search(r"[;&`<>]|\$\(|\bIFS\s*=", command):
+        return False
+
+    segments = [seg.strip() for seg in command.split("|")]
+    if not segments or any(not seg for seg in segments):
+        return False
+    return all(_is_readonly_simple_command(seg) for seg in segments)
+
+
+def _is_readonly_simple_command(command: str) -> bool:
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return False
+    if not parts:
+        return False
+
+    exe = Path(parts[0]).name
+    args = parts[1:]
+    if exe == "git":
+        if not args:
+            return False
+        subcmd = args[0]
+        if subcmd == "-C" and len(args) >= 3:
+            subcmd = args[2]
+        return subcmd in _READONLY_GIT_SUBCOMMANDS
+
+    if exe not in _READONLY_BASH_COMMANDS:
+        return False
+    if exe == "sed" and any(a == "-i" or a.startswith("-i.") for a in args):
+        return False
+    if exe == "find" and any(a in {"-delete", "-exec", "-execdir", "-ok"} for a in args):
+        return False
+    return True
+
+
 class PermissionManager:
     """
     管理工具调用的权限决策。
@@ -189,7 +271,7 @@ class PermissionManager:
             sev = _validator.severity(command)
             if sev == "severe":
                 return {"behavior": "deny", "reason": _validator.describe_failures(command)}
-            if sev == "warn":
+            if sev == "warn" and not _is_readonly_bash(command):
                 return {"behavior": "ask", "reason": _validator.describe_failures(command)}
 
         # Step 1: deny rules（总是最先检查）
@@ -203,15 +285,22 @@ class PermissionManager:
         if self.mode == "plan":
             if tool_name.startswith("mcp__"):
                 return {"behavior": "deny", "reason": "Plan mode: MCP tools blocked."}
+            if tool_name == "bash" and _is_readonly_bash(tool_input.get("command", "")):
+                return {"behavior": "allow", "reason": "Plan mode: read-only bash allowed."}
             if tool_name in WRITE_TOOLS:
                 return {"behavior": "deny", "reason": "Plan mode: write operations blocked."}
             return {"behavior": "allow", "reason": "Plan mode: read-only allowed."}
 
         if self.mode == "auto":
+            if tool_name == "bash" and _is_readonly_bash(tool_input.get("command", "")):
+                return {"behavior": "allow", "reason": "Auto mode: read-only bash auto-approved."}
             if tool_name in READ_ONLY_TOOLS or tool_name == "read_file":
                 return {"behavior": "allow", "reason": "Auto mode: read-only auto-approved."}
             if tool_name.startswith("mcp__") and _mcp_tool_read_like(tool_name):
                 return {"behavior": "allow", "reason": "Auto mode: read-like MCP auto-approved."}
+
+        if tool_name == "bash" and _is_readonly_bash(tool_input.get("command", "")):
+            return {"behavior": "allow", "reason": "Read-only bash auto-approved."}
 
         # Step 3: allow rules
         for rule in self.rules:

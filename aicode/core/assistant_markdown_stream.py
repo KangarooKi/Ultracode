@@ -1,7 +1,6 @@
 """
 流式助手正文：``` 围栏内原样；围栏外按行渲染标题/列表/引用 + 未完成行上的增量 ** 粗体。
-
-flush 时对剩余缓冲调用 format_assistant_markdown。
+GFM 表格会缓存到完整块后再对齐输出，避免逐行流式导致列错位。
 """
 from __future__ import annotations
 
@@ -11,7 +10,7 @@ from aicode.core.markdown_terminal import (
     _BOLD,
     _BOLD_RE,
     _RESET,
-    format_assistant_markdown,
+    _is_table_row_line,
     format_markdown_line,
     format_plain_segment,
 )
@@ -81,12 +80,13 @@ class AssistantMarkdownStreamWriter:
     包装底层 write；流结束后必须调用 flush()。
     """
 
-    __slots__ = ("_write", "_buf", "_in_fence")
+    __slots__ = ("_write", "_buf", "_in_fence", "_table_lines")
 
     def __init__(self, write: Callable[[str], None]) -> None:
         self._write = write
         self._buf = ""
         self._in_fence = False
+        self._table_lines: list[str] = []
 
     def write(self, piece: str) -> None:
         if not piece:
@@ -96,13 +96,34 @@ class AssistantMarkdownStreamWriter:
 
     def flush(self) -> None:
         if self._in_fence:
+            self._flush_table()
             if self._buf:
                 self._write(self._buf)
                 self._buf = ""
             return
         if self._buf:
-            self._write(format_assistant_markdown(self._buf))
+            self._emit_plain(self._buf)
             self._buf = ""
+        self._flush_table()
+
+    def _flush_table(self) -> None:
+        if not self._table_lines:
+            return
+        block = "\n".join(self._table_lines) + "\n"
+        self._write(format_plain_segment(block))
+        self._table_lines = []
+
+    def _emit_plain(self, text: str) -> None:
+        for line in text.splitlines(keepends=True):
+            has_nl = line.endswith("\n")
+            core = line[:-1] if has_nl else line
+            if _is_table_row_line(core):
+                self._table_lines.append(core)
+                if not has_nl:
+                    return
+                continue
+            self._flush_table()
+            self._write(format_plain_segment(line))
 
     def _emit_ready(self) -> None:
         while True:
@@ -125,8 +146,10 @@ class AssistantMarkdownStreamWriter:
                 if last_nl >= 0:
                     complete = self._buf[: last_nl + 1]
                     self._buf = self._buf[last_nl + 1 :]
-                    self._write(format_plain_segment(complete))
+                    self._emit_plain(complete)
                     continue
+                if self._table_lines or self._buf.lstrip().startswith("|"):
+                    return
                 em, tail = _emit_partial_line_no_nl(self._buf)
                 self._buf = tail
                 if em:
@@ -140,16 +163,20 @@ class AssistantMarkdownStreamWriter:
                 if last_nl >= 0:
                     complete = before[: last_nl + 1]
                     tail = before[last_nl + 1 :]
-                    self._write(format_plain_segment(complete))
+                    self._emit_plain(complete)
                     if tail:
+                        self._flush_table()
                         self._write(format_markdown_line(tail))
+                    self._flush_table()
                     self._write("```")
                     self._buf = after
                 else:
+                    self._flush_table()
                     self._write(format_markdown_line(before))
                     self._write("```")
                     self._buf = after
             else:
+                self._flush_table()
                 self._write("```")
                 self._buf = after
             self._in_fence = True

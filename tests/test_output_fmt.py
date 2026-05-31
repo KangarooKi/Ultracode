@@ -1,8 +1,20 @@
 """aicode.cli.output_fmt — Markdown-ish → terminal ANSI."""
 from __future__ import annotations
 
+import re
+
 from aicode.cli.output_fmt import format_assistant_markdown
 from aicode.core.assistant_markdown_stream import AssistantMarkdownStreamWriter
+
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
+
+
+def _pipe_positions(line: str) -> list[int]:
+    return [i for i, ch in enumerate(line) if ch == "|"]
 
 
 def test_bold_double_star():
@@ -110,6 +122,13 @@ def test_inline_code_backticks():
     assert "\033[2;48;5;236m" in s
 
 
+def test_inline_link_and_strikethrough():
+    s = _strip_ansi(format_assistant_markdown("Open [docs](https://example.test) and ~~skip~~"))
+    assert "docs (https://example.test)" in s
+    assert "skip" in s
+    assert "~~" not in s
+
+
 def test_horizontal_rule_rendered():
     s = format_assistant_markdown("---\ntext")
     assert "─" in s
@@ -128,6 +147,44 @@ def test_gfm_table_cjk_display_width_alignment():
     assert len(lines) == 4
     # 若错误按 len() 计算，"汉" 行会出现额外空格，这里应紧贴单个空格分隔
     assert "| 汉 | x" in lines[2]
+
+
+def test_controls_table_pipe_positions_align():
+    raw = (
+        "Controls:\n"
+        "| Key | Action |\n"
+        "|-----|--------|\n"
+        "| ↑↓←→ or WASD | Move tiles |\n"
+        "| R | Restart |\n"
+        "| Q | Quit |\n"
+        "| C | Continue after winning |\n"
+    )
+    s = _strip_ansi(format_assistant_markdown(raw))
+    lines = [ln for ln in s.splitlines() if ln.startswith("|")]
+    positions = [_pipe_positions(ln) for ln in lines]
+    assert len(lines) == 6
+    assert all(pos == positions[0] for pos in positions)
+
+
+def test_stream_gfm_table_waits_for_complete_block():
+    out: list[str] = []
+    w = AssistantMarkdownStreamWriter(out.append)
+    for piece in [
+        "Controls:\n| Key | Action |\n",
+        "|-----|--------|\n",
+        "| ↑↓←→ or WASD | Move tiles |\n",
+        "| R | Restart |\n",
+        "Done",
+    ]:
+        w.write(piece)
+    w.flush()
+    joined = _strip_ansi("".join(out))
+    lines = [ln for ln in joined.splitlines() if ln.startswith("|")]
+    positions = [_pipe_positions(ln) for ln in lines]
+    assert len(lines) == 4
+    assert all(pos == positions[0] for pos in positions)
+    assert joined.index("Controls:") < joined.index("| Key")
+    assert joined.index("| R") < joined.index("Done")
 
 
 def test_stream_heading_split_chunks():

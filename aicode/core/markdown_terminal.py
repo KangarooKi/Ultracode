@@ -19,10 +19,14 @@ import unicodedata
 _RESET = "\033[0m"
 _BOLD = "\033[1m"
 _DIM = "\033[2m"
+_UNDERLINE = "\033[4m"
 
 _FENCE_RE = re.compile(r"```[\s\S]*?```", re.MULTILINE)
+_ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 _BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
 _CODE_RE = re.compile(r"`([^`]+)`")
+_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+_STRIKE_RE = re.compile(r"~~([^~]+)~~")
 
 _HEADER_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 # 常见列表前缀：-, *, +, en-dash, em-dash, minus sign, fullwidth hyphen
@@ -39,9 +43,14 @@ def apply_inline_bold(s: str) -> str:
 
 
 def apply_inline_markdown(s: str) -> str:
-    """行内渲染：先粗体，再行内代码。"""
+    """行内渲染：常见 Markdown inline 语法到 ANSI。"""
     s = apply_inline_bold(s)
-    # 轻量 code 样式：dim + 反显背景，兼容多数终端主题
+    s = _STRIKE_RE.sub(lambda m: f"{_DIM}{m.group(1)}{_RESET}", s)
+    s = _LINK_RE.sub(
+        lambda m: f"{_UNDERLINE}{m.group(1)}{_RESET}{_DIM} ({m.group(2)}){_RESET}",
+        s,
+    )
+    # 轻量 code 样式：dim + 反显背景，兼容多数终端主题。
     return _CODE_RE.sub(lambda m: f"\033[2;48;5;236m {m.group(1)} {_RESET}", s)
 
 
@@ -102,9 +111,12 @@ def _split_gfm_table_row(line: str) -> list[str]:
 
 
 def _plain_width(cell: str) -> str:
-    """用于测宽的纯文本（去掉行内 markdown 标记）。"""
+    """用于测宽的纯文本（去掉行内 markdown/ANSI 标记）。"""
+    cell = _ANSI_RE.sub("", cell)
     no_bold = _BOLD_RE.sub(r"\1", cell)
-    return _CODE_RE.sub(r"\1", no_bold)
+    no_strike = _STRIKE_RE.sub(r"\1", no_bold)
+    no_links = _LINK_RE.sub(lambda m: f"{m.group(1)} ({m.group(2)})", no_strike)
+    return _CODE_RE.sub(r" \1 ", no_links)
 
 
 def _display_width(s: str) -> int:

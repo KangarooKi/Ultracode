@@ -92,12 +92,12 @@ def _terminal_width(default: int = 88) -> int:
     return max(60, min(width, 120))
 
 
-def _nanocode_rgb(t: float) -> tuple[int, int, int]:
-    """Horizontal gradient like NanoCode banner: sky blue → grey-white → pale gold."""
+def _brand_rgb(t: float) -> tuple[int, int, int]:
+    """Wordmark gradient: bright cyan → soft ice → warm gold."""
     t = max(0.0, min(1.0, t))
-    lo = (96, 188, 255)
-    mid = (218, 222, 230)
-    hi = (255, 236, 160)
+    lo = (80, 196, 245)
+    mid = (214, 229, 236)
+    hi = (244, 202, 104)
     if t < 0.5:
         u = t * 2.0
         return (
@@ -113,47 +113,45 @@ def _nanocode_rgb(t: float) -> tuple[int, int, int]:
     )
 
 
-def _nanocode_style_pixel_line(line: str) -> str:
-    """Dark panel + bold block glyphs with per-column truecolor gradient (NanoCode-like)."""
+def _style_wordmark_line(line: str) -> str:
+    """Apply a horizontal truecolor gradient to non-space logo characters."""
     if theme.no_color():
         return line
-    bg = (24, 26, 32)
     n = len(line)
     denom = max(n - 1, 1)
-    parts: list[str] = [
-        f"\033[48;2;{bg[0]};{bg[1]};{bg[2]}m\033[1m",
-    ]
+    parts: list[str] = [theme.BOLD]
     for i, c in enumerate(line):
-        if c == "█":
-            r, g, b = _nanocode_rgb(i / denom)
-            parts.append(f"\033[38;2;{r};{g};{b}m█")
-        else:
+        if c == " ":
             parts.append(" ")
+        else:
+            r, g, b = _brand_rgb(i / denom)
+            parts.append(f"\033[38;2;{r};{g};{b}m{c}")
     parts.append(theme.RESET)
     return "".join(parts)
 
 
-def _pixel_ultracode_lines() -> list[str]:
-    """5-line block-pixel spelling of ULTRACODE (█), for terminal banner."""
-    g: dict[str, tuple[str, str, str, str, str]] = {
-        "U": ("█   █", "█   █", "█   █", "█   █", " ███ "),
-        "L": ("█    ", "█    ", "█    ", "█    ", "████ "),
-        "T": ("█████", "  █  ", "  █  ", "  █  ", "  █  "),
-        "R": ("████ ", "█   █", "████ ", "█ █  ", "█  █ "),
-        "A": (" ███ ", "█   █", "█████", "█   █", "█   █"),
-        "C": (" ███ ", "█    ", "█    ", "█    ", " ███ "),
-        "O": (" ███ ", "█   █", "█   █", "█   █", " ███ "),
-        "D": ("████ ", "█   █", "█   █", "█   █", "████ "),
-        "E": ("█████", "█    ", "████ ", "█    ", "█████"),
-    }
-    word = "ULTRACODE"
-    pad = "  "
-    out = [""] * 5
-    for ch in word:
-        rows = g.get(ch, ("     ", "     ", "  ?  ", "     ", "     "))
-        for i in range(5):
-            out[i] += rows[i] + pad
-    return out
+def _wordmark_lines() -> list[str]:
+    """Compact ANSI-style UltraCode wordmark, tuned for 80-column terminals."""
+    return [
+        "██╗   ██╗██╗  ████████╗██████╗  █████╗   ██████╗ ██████╗ ██████╗ ███████╗",
+        "██║   ██║██║  ╚══██╔══╝██╔══██╗██╔══██╗ ██╔════╝██╔═══██╗██╔══██╗██╔════╝",
+        "██║   ██║██║     ██║   ██████╔╝███████║ ██║     ██║   ██║██║  ██║█████╗  ",
+        "██║   ██║██║     ██║   ██╔══██╗██╔══██║ ██║     ██║   ██║██║  ██║██╔══╝  ",
+        "╚██████╔╝███████╗██║   ██║  ██║██║  ██║ ╚██████╗╚██████╔╝██████╔╝███████╗",
+        " ╚═════╝ ╚══════╝╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝",
+    ]
+
+
+def _print_wordmark(width: int) -> None:
+    lines = _wordmark_lines()
+    longest = max(len(line) for line in lines)
+    if width < longest + 2:
+        print("  " + theme.style("UltraCode", theme.PRIMARY, theme.BOLD))
+        print("  " + theme.dim("agentic coding CLI"))
+        return
+    indent = " " * max(0, (width - longest) // 2)
+    for line in lines:
+        print(indent + _style_wordmark_line(line))
 
 
 def _print_meta_box(workdir: Path, model: str, version: str) -> None:
@@ -191,8 +189,7 @@ def _print_welcome(workdir: Path, model: str) -> None:
     width = _terminal_width()
     rule = "·" * width
     print(theme.dim(rule))
-    for line in _pixel_ultracode_lines():
-        print(_nanocode_style_pixel_line(line))
+    _print_wordmark(width)
     print()
     print(f"  {theme.gold('ready')} {theme.dim('build with flow, code with focus')}")
     _print_meta_box(workdir, model, __version__)

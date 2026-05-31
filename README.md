@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/UltraCode_logo.png" alt="UltraCode logo" width="420">
+</p>
+
 # UltraCode（aicode）
 
 类 **Claude Code** 风格的本地 **AI 辅助编程 CLI**：在指定工作区内通过 OpenAI 兼容 API 调用大模型，使用 **工具调用（function calling）** 完成读文件、写文件、执行命令、任务规划、MCP 集成等操作。

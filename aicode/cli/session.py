@@ -7,6 +7,7 @@ cli/session.py — REPL / 单次 run 共用的会话组装
 from __future__ import annotations
 
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -59,16 +60,38 @@ class PrintingMiddleware(NoopMiddleware):
 
     def __init__(self) -> None:
         self._max_preview = 360
+        self._tool_started_at: dict[str, float] = {}
+
+    def pre_turn(self, state: LoopState) -> None:
+        last_role = state.messages[-1].get("role") if state.messages else None
+        label = "整理结果" if last_role == "tool" else "思考中"
+        detail = "正在分析工具输出，准备下一步" if last_role == "tool" else "正在理解你的请求"
+        print(
+            f"  {theme.status_dot('thinking')} "
+            f"{theme.gold(label)} {theme.badge('model', 'gold')} {theme.dim(detail)}"
+        )
+
+    def pre_tool(self, call: ToolCall, state: LoopState) -> ToolResult | None:
+        self._tool_started_at[call.id] = time.perf_counter()
+        print(
+            f"  {theme.status_dot('working')} "
+            f"{theme.primary(call.name)} {theme.badge('working', 'primary')} "
+            f"{theme.dim(_describe_tool_action(call.name, call.arguments))}"
+        )
+        return None
 
     def post_tool(self, call: ToolCall, result: ToolResult, state: LoopState) -> None:
         raw = (result.content or "").strip()
         status = result.status or "ok"
+        elapsed = _format_elapsed(self._tool_started_at.pop(call.id, None))
         label = {
             "ok": "done",
             "error": "error",
             "denied": "denied",
             "blocked": "blocked",
         }.get(status, status)
+        if elapsed:
+            label = f"{label} {elapsed}"
         if not raw:
             tail = theme.dim("(no output)")
         else:
@@ -89,6 +112,50 @@ def _status_tone(status: str) -> str:
         "denied": "warn",
         "blocked": "warn",
     }.get(status, "muted")
+
+
+def _format_elapsed(started_at: float | None) -> str:
+    if started_at is None:
+        return ""
+    elapsed = max(0.0, time.perf_counter() - started_at)
+    if elapsed < 1:
+        return f"{elapsed * 1000:.0f}ms"
+    if elapsed < 10:
+        return f"{elapsed:.1f}s"
+    return f"{elapsed:.0f}s"
+
+
+def _describe_tool_action(name: str, args: dict) -> str:
+    if name == "read_file":
+        path = str(args.get("path", ""))
+        limit = args.get("limit")
+        suffix = f", limit {limit}" if limit else ""
+        return f"正在读取 {path}{suffix}"
+    if name == "write_file":
+        content = args.get("content", "")
+        n_bytes = len(str(content).encode("utf-8", errors="replace"))
+        return f"正在写入 {args.get('path', '')} ({n_bytes} bytes)"
+    if name == "edit_file":
+        return f"正在修改 {args.get('path', '')}"
+    if name == "bash":
+        command = str(args.get("command", "")).replace("\n", " ").strip()
+        return "正在执行 " + theme.truncate(command, 120)
+    if name == "todo":
+        items = args.get("items", [])
+        count = len(items) if isinstance(items, list) else 0
+        return f"正在更新计划 ({count} steps)"
+    if name == "subagent_call":
+        return "正在委派子代理: " + theme.truncate(str(args.get("prompt", "")), 100)
+    if name.startswith("task_"):
+        return "正在更新任务状态"
+    if name.startswith("background_"):
+        command = str(args.get("command", "") or args.get("task_id", "")).replace("\n", " ")
+        return "正在处理后台任务 " + theme.truncate(command, 100)
+    if name == "git_worktree_list":
+        return "正在检查 git worktree"
+    if name.startswith("mcp__"):
+        return "正在调用 MCP 工具"
+    return "正在执行工具"
 
 
 def session_cleanup(ctx: ReplContext) -> None:

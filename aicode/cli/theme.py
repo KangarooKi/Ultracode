@@ -116,9 +116,18 @@ def badge(text: str, tone: str = "primary") -> str:
 def status_dot(status: str) -> str:
     status = status.lower()
     if no_color():
-        return {"ok": "+", "error": "!", "denied": "x", "blocked": "x"}.get(status, "-")
+        return {
+            "ok": "+",
+            "working": "*",
+            "thinking": "*",
+            "error": "!",
+            "denied": "x",
+            "blocked": "x",
+        }.get(status, "-")
     color = {
         "ok": GREEN,
+        "working": PRIMARY_SOFT,
+        "thinking": GOLD,
         "error": ERROR,
         "denied": WARN,
         "blocked": WARN,

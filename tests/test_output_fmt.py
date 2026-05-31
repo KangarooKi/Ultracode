@@ -69,6 +69,16 @@ def test_stream_bold_split_across_chunks():
     assert "tail" in joined
 
 
+def test_stream_plain_text_without_newline_emits_before_flush():
+    out: list[str] = []
+    w = AssistantMarkdownStreamWriter(out.append)
+
+    w.write("Hello ")
+    w.write("world")
+
+    assert "".join(out) == "Hello world"
+
+
 def test_stream_fence_keeps_inner_stars():
     out: list[str] = []
     w = AssistantMarkdownStreamWriter(out.append)
@@ -191,6 +201,7 @@ def test_stream_heading_split_chunks():
     out: list[str] = []
     w = AssistantMarkdownStreamWriter(out.append)
     w.write("### My ")
+    assert "".join(out) == ""
     w.write("Title\nnext")
     w.flush()
     joined = "".join(out)

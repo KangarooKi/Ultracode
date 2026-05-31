@@ -65,14 +65,30 @@ def _emit_bold_prefix(s: str) -> tuple[str, str]:
 
 def _emit_partial_line_no_nl(s: str) -> tuple[str, str]:
     """
-    尚未以 \\n 结束的片段：无 * 则整段保留（等待标题/列表等行级规则）；
-    含 * 则按 **…** 尽量写出前缀。
+    尚未以 \\n 结束的片段：普通正文尽快写出；仍可能成为标题/列表/表格等
+    行级 Markdown 的前缀则保留到换行后统一渲染。
     """
     if not s:
         return "", ""
-    if "*" not in s:
+    if _could_be_line_markdown(s):
         return "", s
+    if not any(mark in s for mark in ("*", "`", "[", "~")):
+        return s, ""
     return _emit_bold_prefix(s)
+
+
+def _could_be_line_markdown(s: str) -> bool:
+    stripped = s.lstrip()
+    if not stripped:
+        return True
+    first = stripped[0]
+    if first in "#>|":
+        return True
+    if first in "-*+\u2013\u2014\u2212\uff0d":
+        return True
+    if first.isdigit():
+        return True
+    return False
 
 
 class AssistantMarkdownStreamWriter:

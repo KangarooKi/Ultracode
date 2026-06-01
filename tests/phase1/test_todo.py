@@ -1,7 +1,5 @@
 """
-tests/phase1/test_todo.py
-
-测试 planning/todo.py：
+验证会话级 Todo 计划：
 1. TodoManager.update — 正常更新、最多12项、多个 in_progress 报错
 2. TodoManager.render — 各状态标记正确
 3. TodoManager.reminder — 间隔机制

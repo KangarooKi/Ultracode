@@ -1,7 +1,5 @@
 """
-tests/phase2/test_compact.py
-
-测试 context/compact.py：
+验证上下文压缩与 transcript 持久化：
 1. micro_compact — 保留最近 N 条，旧的替换
 2. persist_large_output — 小输出原样，大输出写磁盘
 3. write_transcript + load_transcript

@@ -1,7 +1,5 @@
 """
-tests/phase2/test_permission.py
-
-测试 security/permission.py + security/validator.py：
+验证权限决策与 Bash 安全校验：
 1. BashSecurityValidator — severity / describe_failures
 2. PermissionManager.check — deny/plan/auto/allow/ask 各路径
 3. PermissionManager._matches — tool/path/content glob

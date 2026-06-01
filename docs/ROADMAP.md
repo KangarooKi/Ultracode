@@ -1,6 +1,6 @@
-# aicode 分阶段路线图
+# UltraCode 路线图
 
-目标：在 `learn-claude-code` 教学版概念之上，做成可日常使用的类 Claude Code CLI，模块按目录拆分、主循环单一入口（`core/loop.py`）。
+目标：把 UltraCode 做成可日常使用的终端智能代码助手。核心方向是稳定的 Agent 主循环、清晰的模块边界、可组合中间件、安全的本地工具执行，以及对 OpenAI 兼容模型和 MCP 工具的开放适配。
 
 ## 阶段 0（当前基线）
 
@@ -40,16 +40,14 @@
 - [x] `worktrees/`：`git worktree list` + 工具 `git_worktree_list`
 - [ ] 非 stdio 传输、MCP 重连与市场级插件流程（留作扩展）
 
-## 与教程目录的对应关系（参考）
+## 模块职责速查
 
-| 教程侧重点 | aicode 落点 |
-|-----------|------------|
+| 能力 | 代码位置 |
+|------|----------|
 | 工具与注册表 | `core/tools/` |
-| 主循环 / 中间件 | `core/loop.py` |
-| 权限 / 钩子 | `security/`、`hooks/` |
-| 压缩 / 上下文 | `context/` |
-| 记忆 / 系统提示 | `memory/`、`prompt/` |
-| 规划 / Todo | `planning/` |
-| MCP 等扩展 | `mcp/`、`s19_mcp_plugin.py` 对照 |
-
-具体章节文件名以 `learn-claude-code/web` 与仓库内 `s*` 脚本为准，迁移时保持「一课一模组」的可读性。
+| 主循环与中间件协议 | `core/loop.py` |
+| 权限与钩子 | `security/`、`hooks/` |
+| 压缩与上下文 | `context/` |
+| 记忆与系统提示 | `memory/`、`prompt/` |
+| 规划与 Todo | `planning/` |
+| MCP 扩展 | `mcp/` |

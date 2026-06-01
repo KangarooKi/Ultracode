@@ -1,7 +1,5 @@
 """
-tests/phase1/test_loop.py
-
-测试 core/loop.py：
+验证 Agent 主循环的基础行为：
 1. 无工具调用 → 循环立即结束
 2. 一次工具调用 → dispatch → 结果追加到 messages
 3. middleware.pre_tool 拦截工具调用

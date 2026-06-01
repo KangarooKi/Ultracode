@@ -2,9 +2,8 @@
 planning/todo.py — 会话级任务规划（TodoManager）
 
 管理当前对话中的短期执行计划，不跨会话持久化。
-对应教学代码 s03_todo_write.py 的 TodoManager / PlanningState。
-
-作为 LoopMiddleware 实现，在 post_turn 注入计划提醒。
+模块同时提供 ToolRegistry 处理器与 LoopMiddleware 包装：
+LLM 可以通过 todo 工具更新计划，主循环会在长时间未更新时注入提醒。
 """
 from __future__ import annotations
 
@@ -36,7 +35,7 @@ class TodoManager:
         self.state = PlanningState()
 
     # ------------------------------------------------------------------
-    # 工具处理器（注册到 ToolRegistry 的 handler）
+    # 工具处理器：由 ToolRegistry 调用，接收模型提交的计划列表
     # ------------------------------------------------------------------
 
     def update(self, items: list) -> str:

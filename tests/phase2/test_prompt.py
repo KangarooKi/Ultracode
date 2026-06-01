@@ -1,7 +1,5 @@
 """
-tests/phase2/test_prompt.py
-
-测试 prompt/sections.py + prompt/builder.py：
+验证系统提示构建流程：
 1. build_core — 包含 workdir
 2. build_tool_listing — 列出工具
 3. build_skill_listing — 扫描 SKILL.md

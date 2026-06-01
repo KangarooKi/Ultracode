@@ -12,13 +12,13 @@ import sys
 import locale
 from pathlib import Path
 
-# 工作目录在模块加载时固定（与教学代码行为一致）
+# 默认工作目录用于未显式传入 workdir 的工具调用。
 WORKDIR: Path = Path.cwd().resolve()
 
 # 慢速工具（写磁盘/子进程），调用方可据此加延迟
 SLOW_TOOLS: frozenset[str] = frozenset({"bash", "write_file", "edit_file"})
 
-# bash 危险命令关键词（轻量黑名单，阶段2 permission 模块会做更完整的检查）
+# 基础 Bash 拦截只处理显而易见的高风险片段；完整审查在 permission 模块中完成。
 _DANGEROUS = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
 
 

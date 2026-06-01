@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-# OpenAI 消息格式（dict），保持与教学代码兼容
+# OpenAI Chat Completions 消息结构；保持 dict 形态便于直接传给 SDK。
 Message = dict[str, Any]
 
 

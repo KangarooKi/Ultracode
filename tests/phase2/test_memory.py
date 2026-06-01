@@ -1,13 +1,11 @@
 """
-tests/phase2/test_memory.py
-
-测试 memory/manager.py + memory/dream.py：
+验证记忆管理与 DreamConsolidator 门控：
 1. save_memory — 文件写入 + frontmatter 格式
 2. load_all    — 扫描目录
 3. load_memory_prompt — 分类输出
 4. delete_memory
 5. _rebuild_index
-6. DreamConsolidator 门控（前6道可本地测试，第7道需进程）
+6. DreamConsolidator 的时间与锁文件条件
 """
 from __future__ import annotations
 

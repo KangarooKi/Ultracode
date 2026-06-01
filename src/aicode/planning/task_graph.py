@@ -3,8 +3,7 @@ planning/task_graph.py — 持久化任务图（TaskManager）
 
 任务以 JSON 文件形式存储在 .tasks/ 目录，跨会话存活。
 每个任务携带 blockedBy / blocks 依赖关系。
-
-对应教学代码 s12_task_system.py 的 TaskManager。
+本模块也负责把任务 CRUD 能力注册为 Agent 可调用工具。
 """
 from __future__ import annotations
 
@@ -54,7 +53,7 @@ class TaskManager:
         self._path(task["id"]).write_text(json.dumps(task, indent=2), encoding="utf-8")
 
     # ------------------------------------------------------------------
-    # 公共 API（对应工具处理器）
+    # 公共 API：这些方法会被注册为 Agent 工具处理器
     # ------------------------------------------------------------------
 
     def create(self, subject: str, description: str = "") -> str:

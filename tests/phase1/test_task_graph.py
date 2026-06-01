@@ -1,7 +1,5 @@
 """
-tests/phase1/test_task_graph.py
-
-测试 planning/task_graph.py：
+验证持久化任务图：
 1. create — 任务创建、ID 自增
 2. update — 状态变更、owner、依赖关系
 3. _clear_dependency — 完成任务时清除 blockedBy

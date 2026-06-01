@@ -1,7 +1,8 @@
 """
-mcp/client.py — 最小 stdio JSON-RPC MCP 客户端（与教学版 s19 对齐）
+mcp/client.py — stdio JSON-RPC MCP 客户端
 
-仅支持按行分隔的 JSON-RPC；复杂传输与鉴权留给后续扩展。
+负责启动 MCP server 子进程、完成 initialize 握手、列出工具并转发
+tools/call 请求。当前实现使用按行分隔的 JSON-RPC stdio 传输。
 """
 from __future__ import annotations
 

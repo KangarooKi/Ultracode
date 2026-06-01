@@ -1,7 +1,8 @@
 """
-cli/repl.py — 交互式 REPL（Phase 1+2 集成）
+cli/repl.py — 交互式终端会话
 
-中间件叠加顺序（外→内）见 cli/session.py 中 build_repl_context。
+负责读取用户输入、处理斜杠命令、打印欢迎界面，并把普通请求交给
+cli/session.py 组装好的 Agent loop 运行时。
 """
 from __future__ import annotations
 

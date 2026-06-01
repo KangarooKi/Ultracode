@@ -1,7 +1,7 @@
 """
 security/validator.py — Bash 命令安全校验器
 
-对教学代码 s07 BashSecurityValidator 的直接移植，独立文件便于单独测试。
+提供轻量正则扫描，用于在权限规则运行前标记高风险 Bash 命令。
 """
 from __future__ import annotations
 

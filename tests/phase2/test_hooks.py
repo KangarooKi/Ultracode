@@ -1,7 +1,5 @@
 """
-tests/phase2/test_hooks.py
-
-测试 hooks/manager.py：
+验证 HookManager 与 HookMiddleware：
 1. 工作区不受信任 → 钩子不执行
 2. 退出码 0 → 正常通过
 3. 退出码 1 → blocked=True

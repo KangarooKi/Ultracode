@@ -1,7 +1,5 @@
 """
-tests/phase1/test_tools.py
-
-测试 core/tools/base.py：
+验证基础工具与 ToolRegistry：
 1. safe_path — 路径逃逸防护
 2. run_bash  — 危险命令拦截 + 正常命令执行
 3. run_read  — 正常读取 + limit 截断
